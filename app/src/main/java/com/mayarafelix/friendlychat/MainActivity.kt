@@ -7,6 +7,8 @@ import android.text.TextWatcher
 import android.view.Menu
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import com.google.firebase.database.DatabaseReference
+import com.google.firebase.database.FirebaseDatabase
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -24,11 +26,17 @@ class MainActivity : AppCompatActivity() {
 
     private var mUsername: String? = null
 
+    private lateinit var firebaseDatabase: FirebaseDatabase
+    private lateinit var messageDatabaseReference: DatabaseReference
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         mUsername = anonymous
+
+        firebaseDatabase = FirebaseDatabase.getInstance()
+        messageDatabaseReference = firebaseDatabase.reference.child("messages")
 
         // Initialize references to views
         mProgressBar = findViewById(R.id.progressBar)
@@ -69,8 +77,11 @@ class MainActivity : AppCompatActivity() {
 
         // Send button sends a message and clears the EditText
         mSendButton.setOnClickListener {
-            // TODO: Send messages on click
-
+            mUsername?.let { userName ->
+                val friendlyMessage = FriendlyMessage(mMessageEditText.text.toString(), userName, null)
+                messageDatabaseReference.push().setValue(friendlyMessage);
+            }
+            
             // Clear input box
             mMessageEditText.setText("")
         }
