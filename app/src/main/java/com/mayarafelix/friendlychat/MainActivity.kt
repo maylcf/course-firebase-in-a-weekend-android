@@ -7,8 +7,7 @@ import android.text.TextWatcher
 import android.view.Menu
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import com.google.firebase.database.DatabaseReference
-import com.google.firebase.database.FirebaseDatabase
+import com.google.firebase.database.*
 import java.util.*
 
 class MainActivity : AppCompatActivity() {
@@ -85,6 +84,29 @@ class MainActivity : AppCompatActivity() {
             // Clear input box
             mMessageEditText.setText("")
         }
+
+        messageDatabaseReference.addChildEventListener(object : ChildEventListener {
+            override fun onChildAdded(dataSnapshot: DataSnapshot, p1: String?) {
+                val friendlyMessage: FriendlyMessage = dataSnapshot.getValue(FriendlyMessage::class.java) as FriendlyMessage
+                mMessageAdapter.add(friendlyMessage)
+            }
+
+            override fun onChildChanged(p0: DataSnapshot, p1: String?) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun onChildRemoved(p0: DataSnapshot) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun onChildMoved(p0: DataSnapshot, p1: String?) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+
+            override fun onCancelled(p0: DatabaseError) {
+                TODO("not implemented") //To change body of created functions use File | Settings | File Templates.
+            }
+        })
     }
 
     override fun onCreateOptionsMenu(menu: Menu): Boolean {
