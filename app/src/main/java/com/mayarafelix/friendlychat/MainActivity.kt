@@ -6,6 +6,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.InputFilter
 import android.text.TextWatcher
+import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.*
@@ -13,6 +14,12 @@ import androidx.appcompat.app.AppCompatActivity
 import com.firebase.ui.auth.AuthUI
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
+import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.StorageReference
+import com.google.android.gms.tasks.OnSuccessListener
+import com.google.firebase.storage.UploadTask
+
+
 
 
 class MainActivity : AppCompatActivity() {
@@ -21,6 +28,7 @@ class MainActivity : AppCompatActivity() {
     private val anonymous = "anonymous"
     private val defaultMessageLengthLimit = 1000
     private val RC_SIGN_IN = 123
+    private val RC_PHOTO_PICKER = 2
 
     private lateinit var mMessageListView: ListView
     private lateinit var mMessageAdapter: MessageAdapter
@@ -28,12 +36,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var mPhotoPickerButton: ImageButton
     private lateinit var mMessageEditText: EditText
     private lateinit var mSendButton: Button
-
-    private var mUsername: String? = null
+    private lateinit var mUsername: String
 
     private lateinit var firebaseDatabase: FirebaseDatabase
-    private lateinit var firebaseAuth: FirebaseAuth
     private lateinit var messageDatabaseReference: DatabaseReference
+    private lateinit var firebaseAuth: FirebaseAuth
+    private lateinit var firebaseStorage: FirebaseStorage
+    private lateinit var firebaseStorageReference: StorageReference
 
     private var messageListener: ChildEventListener? = null
     private var authStateListener: FirebaseAuth.AuthStateListener? = null
@@ -58,7 +67,13 @@ class MainActivity : AppCompatActivity() {
 
         // ImagePickerButton shows an image picker to upload a image for a message
         mPhotoPickerButton.setOnClickListener {
-            // TODO: Fire an intent to show an image picker
+            val intent = Intent(Intent.ACTION_GET_CONTENT)
+            intent.type = "image/jpeg"
+            intent.putExtra(Intent.EXTRA_LOCAL_ONLY, true)
+            startActivityForResult(
+                Intent.createChooser(intent, "Complete action using"),
+                RC_PHOTO_PICKER
+            )
         }
 
         // Enable Send button when there's text to send
@@ -80,11 +95,8 @@ class MainActivity : AppCompatActivity() {
 
         // Send button sends a message and clears the EditText
         mSendButton.setOnClickListener {
-            mUsername?.let { userName ->
-                val friendlyMessage =
-                    FriendlyMessage(mMessageEditText.text.toString(), userName, null)
-                messageDatabaseReference.push().setValue(friendlyMessage);
-            }
+            val friendlyMessage = FriendlyMessage(mMessageEditText.text.toString(), mUsername, null)
+            messageDatabaseReference.push().setValue(friendlyMessage);
 
             // Clear input box
             mMessageEditText.setText("")
@@ -96,11 +108,22 @@ class MainActivity : AppCompatActivity() {
 
         if (requestCode == RC_SIGN_IN) {
             if (resultCode == Activity.RESULT_OK) {
-                Toast.makeText(this@MainActivity, "Welcome to Friendly Chat", Toast.LENGTH_SHORT)
-                    .show()
+                Toast.makeText(this@MainActivity, "Welcome to Friendly Chat", Toast.LENGTH_SHORT).show()
             } else if (resultCode == Activity.RESULT_CANCELED) {
                 Toast.makeText(this@MainActivity, "Sign in Cancelled", Toast.LENGTH_SHORT).show()
                 finish()
+            }
+        } else if (requestCode == RC_PHOTO_PICKER && resultCode == Activity.RESULT_OK) {
+            data?.data?.let { selectedUri ->
+                selectedUri.lastPathSegment?.let { lastPathSegment ->
+                    val storageReference = firebaseStorageReference.child(lastPathSegment)
+                    storageReference.putFile(selectedUri).addOnSuccessListener {
+                        storageReference.downloadUrl.addOnSuccessListener { uri ->
+                            val friendlyMessage = FriendlyMessage(null, mUsername, uri.toString())
+                            messageDatabaseReference.push().setValue(friendlyMessage)
+                        }
+                    }
+                }
             }
         }
     }
@@ -122,13 +145,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-
         attachAuthStateListener()
     }
 
     override fun onPause() {
         super.onPause()
-
         detachAuthStateListener()
         detachMessageDatabaseReadListener()
     }
@@ -144,10 +165,13 @@ class MainActivity : AppCompatActivity() {
     private fun initializeFirebaseElements() {
         firebaseDatabase = FirebaseDatabase.getInstance()
         firebaseAuth = FirebaseAuth.getInstance()
+        firebaseStorage = FirebaseStorage.getInstance()
+
         messageDatabaseReference = firebaseDatabase.reference.child("messages")
+        firebaseStorageReference = firebaseStorage.reference.child("chat_photos")
     }
 
-    private fun onSignedInInitialize(username: String?) {
+    private fun onSignedInInitialize(username: String) {
         mUsername = username
         attachMessageDatabaseReadListener()
     }
@@ -223,7 +247,7 @@ class MainActivity : AppCompatActivity() {
                 val user = firebaseAuth.currentUser
 
                 if (user != null && user.displayName != null) {
-                    onSignedInInitialize(user.displayName)
+                    onSignedInInitialize(user.displayName!!)
                 } else {
                     onSignedOutCleanup()
                     displaySignInPage()
