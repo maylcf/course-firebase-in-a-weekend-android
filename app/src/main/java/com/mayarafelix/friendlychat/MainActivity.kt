@@ -6,7 +6,6 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.InputFilter
 import android.text.TextWatcher
-import android.util.Log
 import android.view.Menu
 import android.view.MenuItem
 import android.widget.*
@@ -16,10 +15,6 @@ import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.database.*
 import com.google.firebase.storage.FirebaseStorage
 import com.google.firebase.storage.StorageReference
-import com.google.android.gms.tasks.OnSuccessListener
-import com.google.firebase.storage.UploadTask
-
-
 
 
 class MainActivity : AppCompatActivity() {
@@ -116,7 +111,7 @@ class MainActivity : AppCompatActivity() {
         } else if (requestCode == RC_PHOTO_PICKER && resultCode == Activity.RESULT_OK) {
             data?.data?.let { selectedUri ->
                 selectedUri.lastPathSegment?.let { lastPathSegment ->
-                    val storageReference = firebaseStorageReference.child(lastPathSegment)
+                    val storageReference = firebaseStorageReference.child(getFormattedFilePath(lastPathSegment))
                     storageReference.putFile(selectedUri).addOnSuccessListener {
                         storageReference.downloadUrl.addOnSuccessListener { uri ->
                             val friendlyMessage = FriendlyMessage(null, mUsername, uri.toString())
@@ -126,6 +121,15 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun getFormattedFilePath(fullPath: String) : String {
+        val pathArray = fullPath.split('/')
+        return getFormattedUserName() + "/" + pathArray.get(pathArray.size - 1)
+    }
+
+    private fun getFormattedUserName() : String {
+        return mUsername.replace(" ", "").toLowerCase()
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
